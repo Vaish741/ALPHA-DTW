@@ -84,10 +84,6 @@ The experiments use datasets from the **UCR Time Series Archive**:
 Detailed dataset descriptions are provided here (UCR Archive):  
 https://www.cs.ucr.edu/~eamonn/time_series_data_2018/
 
-Detailed dataset descriptions are provided here:  
-https://www.timeseriesclassification.com/
-
-
 
 ## 5. Experiments
 
