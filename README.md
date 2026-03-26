@@ -128,13 +128,7 @@ SEEDS = [1, 15, 20, 38, 40, 45, 53, 68, 75, 86]
 ---
 The analysis has also been performed on real datasets, including ECG200, Lightning7, and GunPoint.
 
-
-
-```
-
----
-
-## 6. Reproducibility Notes
+##  6. Reproducibility Notes
 
 - **Alpha** is tuned using LOOCV on the training set:
   ```
