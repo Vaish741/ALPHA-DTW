@@ -1,30 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 23 16:21:11 2026
 
-@author: vaish
-"""
-
-"""
-Cython-based Experimental Evaluation for DTW, ACDTW, and Alpha-DTW
-------------------------------------------------------------------
-
-This script evaluates 1-NN classification performance on UCR datasets
-using optimized Cython implementations.
-
-Algorithms:
-    1. ACDTW
-    2. Classical DTW (Alpha-DTW with alpha = 0)
-    3. Alpha-DTW (with tuned alpha)
-
-Notes
------
-- Uses Leave-One-Out Cross Validation (LOOCV) to tune alpha.
-- Distance computations are performed using compiled Cython modules.
-- Input time series are converted to contiguous float64 arrays.
-
-Author: Vaishnavi Rastogi
-"""
 
 from __future__ import annotations
 
@@ -37,14 +11,11 @@ from sklearn.model_selection import LeaveOneOut
 from src.cython import alpha_dtw
 from src.cython import acdtw
 
+# Specify dataset names to run experiments on
 
-DATASETS = [
-    "Beef", "CBF", "Coffee", "ECG200",
-    "FaceFour", "Fish", "GunPoint", "Lightning2", "Lightning7",
-    "OliveOil", "ShapeletSim", "Symbols", "SwedishLeaf",
-    "SyntheticControl", "Trace", "TwoLeadECG",
-]
+DATASETS =["ECG200"]
 
+   
 
 # ------------------------------------------------------------------
 # Dataset Loader
@@ -69,10 +40,11 @@ def load_dataset(root: str, name: str):
     train = np.genfromtxt(folder / f"{name}_TRAIN.tsv")
     test = np.genfromtxt(folder / f"{name}_TEST.tsv")
 
-    y_train = train[:, 0]
+    y_train = train[:, 0].astype(int)
     X_train = train[:, 1:]
-    y_test = test[:, 0]
+    y_test  = test[:, 0].astype(int)
     X_test = test[:, 1:]
+    
 
     return X_train, y_train, X_test, y_test
 
@@ -156,7 +128,14 @@ def tune_alpha(X_train, y_train):
     float
         Best alpha value
     """
-    alphas = np.logspace(-5, 0, 100)
+    start_exp = -5
+    stop_value = 1
+    stop_exp = np.log10(stop_value)  # 0
+    n_alphas=100
+    alphas = np.logspace(start_exp, stop_exp, n_alphas)
+
+    
+
     loo = LeaveOneOut()
 
     best_alpha = None
@@ -197,6 +176,13 @@ def tune_alpha(X_train, y_train):
 # Main Experiment Pipeline
 # ------------------------------------------------------------------
 def main():
+    """
+    Run classification experiments using 1-NN with:
+    - ACDTW
+    - DTW (alpha = 0)
+    - Alpha-DTW (alpha tuned via LOOCV)
+    """
+    # Enter path to the dataset root folder (e.g., "Dataset")
     dataset_root = input("Enter dataset path: ").strip()
 
     print("\nChoose algorithm")

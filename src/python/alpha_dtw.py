@@ -145,7 +145,7 @@ def alpha_dtw_distance(
 
     Notes
     -----
-    
+      The implementation uses 0‑based indexing (Python).
     - Time complexity: O(n * m)
     """
 

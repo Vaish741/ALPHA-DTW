@@ -1,35 +1,16 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 23 15:57:34 2026
-
-@author: vaish
-"""
-
 import numpy as np
 
-# Import Python version
-from src.python.alpha_dtw import alpha_dtw_distance as python_dtw
+from src.python.alpha_dtw import alpha_dtw_distance as py_alpha
+from src.cython.alpha_dtw import alpha_dtw_distance as cy_alpha
 
-# Import Cython version
-from src.cython.alpha_dtw import alpha_dtw_distance as cython_dtw
+from src.python.acdtw import acdtw_equal_len_paper as py_acdtw
+from src.cython.acdtw import acdtw_equal_len_paper as cy_acdtw
 
+x = np.array([1,1,1,-1,1,1,1], dtype=np.float64)
+y = np.array([1,1,-1,1,1,1,1], dtype=np.float64)
 
-def run_test():
-    # Example data
-    x = np.array([1, 1, 1, -1, 1, 1, 1], dtype=np.float64)
-    y = np.array([1, 1, -1, 1, 1, 1, 1], dtype=np.float64)
+print("Alpha Python:", py_alpha(x, y, alpha=0.5))
+print("Alpha Cython:", cy_alpha(x, y, 0.5))
 
-    alpha = 0.5
-
-    d_py = python_dtw(x, y, alpha=alpha)
-    
-    d_cy = cy_dtw(x, y, alpha)
-
-    print("Python Alpha-DTW:", d_py)
-    print("Cython ALpha-DTW:", d_cy)
-
-    
-
-
-if __name__ == "__main__":
-    run_test()
+print("ACDTW Python:", py_acdtw(x, y))
+print("ACDTW Cython:", cy_acdtw(x, y))

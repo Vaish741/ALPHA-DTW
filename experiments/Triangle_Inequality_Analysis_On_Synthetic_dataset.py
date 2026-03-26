@@ -1,18 +1,7 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Mar 23 16:33:35 2026
-
-@author: vaish
-"""
-
 from __future__ import annotations
 
-import sys
-import importlib
-from pathlib import Path
 from itertools import combinations, product
 from typing import Callable
-
 import numpy as np
 
 try:
@@ -22,61 +11,36 @@ except Exception:
         return iterable
 
 
+from src.cython import alpha_dtw, acdtw
+
+
 """
-Triangle inequality analysis using Cython implementations of ACDTW,
-DTW (alpha = 0), and Alpha-DTW.
+Triangle-inequality violation analysis for ACDTW, DTW, and Alpha-DTW.
 
-- Evaluates violation rates on synthetic datasets.
-- Supports equilateral, isosceles, and scalene triplets.
-- Uses compiled Cython modules when available.
-- Falls back to Python version if needed.
+1) Synthetic datasets (Dataset 1 + Dataset 2)
+2) A real UCR dataset (train+test combined)
 
-All computations preserve the original algorithmic logic.
+
 """
-
-
-# ------------------------------------------------
-# Path setup
-# ------------------------------------------------
-ROOT = Path(__file__).resolve().parent.parent
-BUILD_DIRS = sorted((ROOT / "build").glob("lib.*"))
-ACDTW_DIRS = [ROOT / "ACDTW", ROOT / "src" / "ACDTW"]
-
-
-def _prepend(path: Path):
-    if path.exists():
-        p = str(path)
-        if p in sys.path:
-            sys.path.remove(p)
-        sys.path.insert(0, p)
-
-
-def _setup_paths():
-    for p in BUILD_DIRS:
-        _prepend(p)
-
-    _prepend(ROOT)
-
-    for p in ACDTW_DIRS:
-        _prepend(p)
 
 
 # ------------------------------------------------
 # Synthetic dataset generation
+# Dataset 1
 # ------------------------------------------------
-def generate_white_noise(n=50, length=50):
+def d1_class_1(n=50, length=50):
     return np.random.normal(0, 1, (n, length))
 
 
-def generate_random_walk(n=50, length=50):
+def d1_class_2(n=50, length=50):
     X = np.zeros((n, length))
     for i in range(1, length):
         X[:, i] = X[:, i - 1] + np.random.normal(0, 1, n)
     return X
 
 
-def generate_sinusoidal(n=50, length=50):
-    t = np.arange(length)
+def d1_class_3(n=50, length=50):
+    t = np.arange(1, length + 1)
     omega = (4 * np.pi * t) / (length - 1)
 
     return np.array([
@@ -86,8 +50,11 @@ def generate_sinusoidal(n=50, length=50):
     ])
 
 
+# ------------------------------------------------
+# Synthetic dataset generation
 # Dataset 2
-def generate_type_a(m, eps, L, l, n=50):
+# ------------------------------------------------
+def d2_class_1(m, eps, L, l, n=50):
     curves = []
     even_idx = [2 * i for i in range(1, 2 * m)]
     length = 4 * m + 1
@@ -104,7 +71,7 @@ def generate_type_a(m, eps, L, l, n=50):
     return np.array(curves)
 
 
-def generate_type_b(m, eps, L, n=50):
+def d2_class_2(m, eps, L, n=50):
     length = 4 * m + 1
     curves = []
 
@@ -117,7 +84,7 @@ def generate_type_b(m, eps, L, n=50):
     return np.array(curves)
 
 
-def generate_type_c(m, eps, n=50):
+def d2_class_3(m, eps, n=50):
     length = 4 * m + 1
     curves = []
 
@@ -131,10 +98,10 @@ def generate_type_c(m, eps, n=50):
 
 
 # ------------------------------------------------
-# Triplets
+# Triplets 
 # ------------------------------------------------
 def get_equilateral(y):
-    return list(set(sum([list(combinations(np.where(y == c)[0], 3)) for c in np.unique(y)], [])))
+    return list(sum([list(combinations(np.where(y == c)[0], 3)) for c in np.unique(y)], []))
 
 
 def get_isosceles(y):
@@ -158,6 +125,7 @@ def get_isosceles(y):
 def get_scalene(y):
     classes = np.unique(y)
     if len(classes) < 3:
+        print("scalene: skipped (fewer than 3 classes)")
         return []
 
     triplets = []
@@ -169,33 +137,42 @@ def get_scalene(y):
     return list(set(triplets))
 
 
+
 # ------------------------------------------------
-# Triangle looseness
+# Triangle looseness 
 # ------------------------------------------------
 def looseness(d_ij, d_jk, d_ik):
-    vals = [d_ij + d_jk - d_ik,
-            d_ik + d_jk - d_ij,
-            d_ik + d_ij - d_jk]
+    """
+    Measure triangle inequality violation.
+
+    Returns the minimum negative deviation from the triangle inequality.
+    A negative value indicates a violation.
+    """
+    vals = [
+        d_ij + d_jk - d_ik,
+        d_ik + d_jk - d_ij,
+        d_ik + d_ij - d_jk,
+    ]
 
     neg = [v for v in vals if v < 0]
     return min(neg) if neg else 0
 
 
 # ------------------------------------------------
-# Distance loading (Cython)
+# Distance functions 
 # ------------------------------------------------
-def load_acdtw():
-    _setup_paths()
-    mod = importlib.import_module("acdtw")
-    return mod.acdtw_equal_len_paper
+def acdtw_distance(a, b):
+    return float(
+        acdtw.acdtw_equal_len_paper(
+            np.ascontiguousarray(a, dtype=np.float64),
+            np.ascontiguousarray(b, dtype=np.float64),
+        )
+    )
 
 
-def load_alpha(alpha):
-    _setup_paths()
-    mod = importlib.import_module("alpha_dtw")
-
+def alpha_distance(alpha):
     return lambda a, b: float(
-        mod.alpha_dtw_distance(
+        alpha_dtw.alpha_dtw_distance(
             np.ascontiguousarray(a, dtype=np.float64),
             np.ascontiguousarray(b, dtype=np.float64),
             float(alpha),
@@ -204,9 +181,28 @@ def load_alpha(alpha):
 
 
 # ------------------------------------------------
-# Triangle evaluation
+# Triangle Inequality evaluation 
 # ------------------------------------------------
 def evaluate(X, triplets, dist, name):
+    """
+  Evaluate triangle inequality violations.
+
+  Parameters
+  ----------
+  X : np.ndarray
+      Time series dataset
+  triplets : list
+      Triplets of indices (i, j, k)
+  dist : callable
+      Distance function
+  name : str
+      Type of triplet (equilateral, isosceles, scalene)
+
+  Returns
+  -------
+  float
+      Violation rate
+  """
     v = 0
     total = len(triplets)
 
@@ -226,22 +222,22 @@ def evaluate(X, triplets, dist, name):
 
 
 # ------------------------------------------------
-# Experiments
+# Synthetic experiments
 # ------------------------------------------------
 SEEDS = [1, 15, 20, 38, 40, 45, 53, 68, 75, 86]
 
 
-def run_dataset_1(dist_name, dist):
-    print("\nDataset 1:", dist_name)
+def run_dataset_1(name, dist):
+    print("\nDataset 1:", name)
     stats = {"equilateral": [], "isosceles": [], "scalene": []}
 
     for s in SEEDS:
         np.random.seed(s)
 
         X = np.vstack([
-            generate_white_noise(),
-            generate_random_walk(),
-            generate_sinusoidal()
+            d1_class_1(),
+            d1_class_2(),
+            d1_class_3()
         ])
 
         y = np.repeat([0, 1, 2], 50)
@@ -260,17 +256,17 @@ def run_dataset_1(dist_name, dist):
         print(k, np.mean(stats[k]) * 100)
 
 
-def run_dataset_2(dist_name, dist):
-    print("\nDataset 2:", dist_name)
+def run_dataset_2(name, dist):
+    print("\nDataset 2:", name)
     stats = {"equilateral": [], "isosceles": [], "scalene": []}
 
     for s in SEEDS:
         np.random.seed(s)
 
         X = np.vstack([
-            generate_type_a(10, 0.5, 10, 10),
-            generate_type_b(10, 0.5, 10),
-            generate_type_c(10, 0.5)
+            d2_class_1(10, 0.5, 10, 10),
+            d2_class_2(10, 0.5, 10),
+            d2_class_3(10, 0.5)
         ])
 
         y = np.repeat([0, 1, 2], 50)
@@ -290,25 +286,89 @@ def run_dataset_2(dist_name, dist):
 
 
 # ------------------------------------------------
-# Main
+# UCR loader
+# ------------------------------------------------
+def load_ucr_dataset(root: str, name: str):
+    folder = f"{root}/{name}"
+    train = np.genfromtxt(f"{folder}/{name}_TRAIN.tsv")
+    test = np.genfromtxt(f"{folder}/{name}_TEST.tsv")
+
+    y_train = train[:, 0].astype(int)
+    X_train = train[:, 1:]
+
+    y_test = test[:, 0].astype(int)
+    X_test = test[:, 1:]
+
+    X = np.vstack([X_train, X_test])
+    y = np.concatenate([y_train, y_test])
+    return X, y
+
+
+def run_ucr_dataset(distance_name, distance_func, dataset_root, dataset_name):
+    print(f"\n=== UCR Dataset: {dataset_name} ===")
+    print(f"Distance: {distance_name}")
+
+    X, y = load_ucr_dataset(dataset_root, dataset_name)
+    classes = np.unique(y)
+
+  
+    triplets = {
+        "equilateral": get_equilateral(y),
+        "isosceles": get_isosceles(y),
+    }
+
+    # scalene only if >= 3 classes
+    if len(classes) < 3:
+        print("Scalene Triplets not exist (Classes less than 3)")
+    else:
+        triplets["scalene"] = get_scalene(y)
+
+    for t in triplets:
+        
+        evaluate(X, triplets[t], distance_func, t)
+
+
+
+# ------------------------------------------------
+# Distance choice
+# ------------------------------------------------
+def choose_distance() -> tuple[str, Callable[[np.ndarray, np.ndarray], float]]:
+    print("Choose the distance:")
+    print("1. ACDTW")
+    print("2. DTW (alpha = 0)")
+    print("3. Alpha-DTW (alpha = 0.5)")
+
+    choice = input("Enter 1, 2, or 3: ").strip()
+
+    if choice == "1":
+        return "acdtw", acdtw_distance
+    if choice == "2":
+        return "dtw", alpha_distance(0.0)
+
+    return "alpha_dtw", alpha_distance(0.5)
+
+
+# ------------------------------------------------
+# Main 
 # ------------------------------------------------
 def main():
-    print("1: ACDTW | 2: DTW | 3: Alpha-DTW")
-    c = input("Choice: ").strip()
+    distance_name, distance_func = choose_distance()
 
-    if c == "1":
-        dist = load_acdtw()
-        name = "ACDTW"
-    elif c == "2":
-        dist = load_alpha(0.0)
-        name = "DTW"
+    print("\nChoose dataset type:")
+    print("1. Synthetic (Dataset 1 + Dataset 2)")
+    print("2. UCR Dataset")
+    mode = input("Enter 1 or 2: ").strip()
+
+    if mode == "1":
+        run_dataset_1(distance_name, distance_func)
+        run_dataset_2(distance_name, distance_func)
     else:
-        dist = load_alpha(0.5)
-        name = "Alpha-DTW"
-
-    run_dataset_1(name, dist)
-    run_dataset_2(name, dist)
+        dataset_root = input("Enter UCR dataset root path: ").strip()
+        dataset_name = input("Enter dataset name (e.g., ECG200): ").strip()
+        run_ucr_dataset(distance_name, distance_func, dataset_root, dataset_name)
 
 
 if __name__ == "__main__":
     main()
+    
+    
