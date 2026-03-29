@@ -1,6 +1,6 @@
 # ALPHA-DTW
-**Alpha-DTW** is an extension of Dynamic Time Warping (DTW) that introduces an additional penalty which takes into account the variation in the values within each time series at the aligned indices.The penalty is controlled by a parameter alpha. The method provides a controllable trade-off between DTW (flexible alignment) and Euclidean distance (rigid alignment).
-This repository provides Python implementations of **Alpha‑DTW**, **DTW** and **ACDTW** (Cython implementation is also available for fast computation).
+**Alpha-DTW** is an extension of Dynamic Time Warping (DTW) that introduces an additional penalty which takes into account the variation in the values within each time series at the aligned indices. The penalty is controlled by a parameter alpha. The method provides a controllable trade-off between DTW  and Euclidean distance.
+This repository provides Python implementations of **Alpha‑DTW**, **DTW**, and **ACDTW** (Cython implementation is also available for fast computation).
 The repository includes the following experiments:
 - **1‑NN classification** on UCR datasets  
 - **Triangle‑inequality violation analysis** on datasets.
@@ -15,7 +15,7 @@ ALPHA-DTW/
 │
 ├── src/
 │   ├── cython/        # Cython implementations (alpha_dtw.pyx, acdtw.pyx)
-│   └── python/        # Pure Python reference implementations
+│   └── python/        # Python reference implementations
 │
 ├── experiments/
 │   ├── Classification_Experiment.py
@@ -136,7 +136,7 @@ The analysis has also been performed on real datasets, including ECG200, Lightni
   ```
 - **DTW** is equivalent to **Alpha‑DTW with α = 0**.
 - Synthetic experiments use fixed seeds.
-- In this study, all datasets chosen from UCR archive  have time series of equal length.
+- In this study, all datasets chosen from the UCR archive  have time series of equal length.
 
 ---
 
